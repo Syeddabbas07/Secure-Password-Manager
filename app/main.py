@@ -1,26 +1,15 @@
 from fastapi import Depends, FastAPI, HTTPException, status
-from fastapi.security import (
-    HTTPAuthorizationCredentials,
-    HTTPBearer,
-)
+from fastapi.security import HTTPAuthorizationCredentials,HTTPBearer
 from jose import JWTError, jwt
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import engine, get_db
-from app.models import Base, User
-from app.schemas import (
-    Token,
-    UserCreate,
-    UserLogin,
-    UserResponse,
-)
-from app.security import (
-    ALGORITHM,
-    SECRET_KEY,
-    create_access_token,
-    hash_password,
-    verify_password,
-)
+from app.encryption import encrypt_password
+from app.models import Base, User, VaultItem
+from app.schemas import Token,UserCreate, UserLogin,UserResponse,VaultItemCreate,VaultItemResponse
+
+from app.security import ALGORITHM,SECRET_KEY,create_access_token,hash_password,verify_password
 
 Base.metadata.create_all(bind=engine)
 
@@ -57,19 +46,17 @@ def get_current_user(
             algorithms=[ALGORITHM],
         )
 
-        email = payload.get("sub")
+        subject = payload.get("sub")
 
-        if email is None:
+        if subject is None:
             raise credentials_exception
 
-    except JWTError:
+        user_id = int(subject)
+
+    except (JWTError, ValueError):
         raise credentials_exception
 
-    user = (
-        db.query(User)
-        .filter(User.email == email)
-        .first()
-    )
+    user = db.get(User, user_id)
 
     if user is None:
         raise credentials_exception
@@ -107,7 +94,7 @@ def register_user(
 
     if existing_user is not None:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered",
         )
 
@@ -118,9 +105,18 @@ def register_user(
         ),
     )
 
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    try:
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+
+    except IntegrityError:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Email already registered",
+        )
 
     return new_user
 
@@ -153,7 +149,7 @@ def login(
         )
 
     access_token = create_access_token(
-        data={"sub": user.email}
+        data={"sub": str(user.id)}
     )
 
     return {
@@ -170,3 +166,38 @@ def read_current_user(
     current_user: User = Depends(get_current_user),
 ):
     return current_user
+
+
+@app.post(
+    "/vault",
+    response_model=VaultItemResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_vault_item(
+    item_data: VaultItemCreate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    encrypted_password, nonce = encrypt_password(
+        password=item_data.password,
+        user_id=current_user.id,
+    )
+
+    new_item = VaultItem(
+        user_id=current_user.id,
+        website=item_data.website,
+        username=item_data.username,
+        encrypted_password=encrypted_password,
+        nonce=nonce,
+    )
+
+    try:
+        db.add(new_item)
+        db.commit()
+        db.refresh(new_item)
+
+    except Exception:
+        db.rollback()
+        raise
+
+    return new_item
