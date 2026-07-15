@@ -57,3 +57,11 @@ class VaultItemResponse(BaseModel):
     model_config = {
         "from_attributes": True,
     }
+
+
+class VaultItemDetail(BaseModel):
+    id: int
+    website: str
+    username: str
+    password: str
+    created_at: datetime

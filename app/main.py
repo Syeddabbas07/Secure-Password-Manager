@@ -5,9 +5,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import engine, get_db
-from app.encryption import encrypt_password
+from app.encryption import decrypt_password,encrypt_password
 from app.models import Base, User, VaultItem
-from app.schemas import Token,UserCreate, UserLogin,UserResponse,VaultItemCreate,VaultItemResponse
+from app.schemas import Token,UserCreate, UserLogin,UserResponse,VaultItemCreate,VaultItemResponse,VaultItemDetail
 
 from app.security import ALGORITHM,SECRET_KEY,create_access_token,hash_password,verify_password
 
@@ -201,3 +201,71 @@ def create_vault_item(
         raise
 
     return new_item
+
+@app.get(
+    "/vault",
+    response_model=list[VaultItemDetail],
+)
+def list_vault_items(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    items = (
+        db.query(VaultItem)
+        .filter(VaultItem.user_id == current_user.id)
+        .order_by(VaultItem.created_at.desc())
+        .all()
+    )
+
+    return [
+        VaultItemDetail(
+            id=item.id,
+            website=item.website,
+            username=item.username,
+            password=decrypt_password(
+                encrypted_password=item.encrypted_password,
+                nonce=item.nonce,
+                user_id=current_user.id,
+            ),
+            created_at=item.created_at,
+        )
+        for item in items
+    ]
+
+@app.get(
+    "/vault/{item_id}",
+    response_model=VaultItemDetail,
+)
+def get_vault_item(
+    item_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    item = (
+        db.query(VaultItem)
+        .filter(
+            VaultItem.id == item_id,
+            VaultItem.user_id == current_user.id,
+        )
+        .first()
+    )
+
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vault item not found",
+        )
+
+    decrypted_password = decrypt_password(
+        encrypted_password=item.encrypted_password,
+        nonce=item.nonce,
+        user_id=current_user.id,
+    )
+
+    return VaultItemDetail(
+        id=item.id,
+        website=item.website,
+        username=item.username,
+        password=decrypted_password,
+        created_at=item.created_at,
+    )
