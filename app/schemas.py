@@ -59,9 +59,43 @@ class VaultItemResponse(BaseModel):
     }
 
 
+class VaultItemUpdate(BaseModel):
+    website: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+    )
+    username: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+    )
+    password: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=1000,
+    )
+
+
 class VaultItemDetail(BaseModel):
     id: int
     website: str
     username: str
     password: str
     created_at: datetime
+
+
+class PasswordGeneratorRequest(BaseModel):
+    length: int = Field(
+        default=16,
+        ge=8,
+        le=128,
+    )
+    include_uppercase: bool = True
+    include_lowercase: bool = True
+    include_numbers: bool = True
+    include_symbols: bool = True
+
+
+class PasswordGeneratorResponse(BaseModel):
+    password: str

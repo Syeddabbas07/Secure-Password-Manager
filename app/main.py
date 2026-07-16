@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends,FastAPI,HTTPException,Query,status
 from fastapi.security import HTTPAuthorizationCredentials,HTTPBearer
 from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
@@ -7,9 +7,22 @@ from sqlalchemy.orm import Session
 from app.database import engine, get_db
 from app.encryption import decrypt_password,encrypt_password
 from app.models import Base, User, VaultItem
-from app.schemas import Token,UserCreate, UserLogin,UserResponse,VaultItemCreate,VaultItemResponse,VaultItemDetail
+from app.schemas import (
+    PasswordGeneratorRequest,
+    PasswordGeneratorResponse,
+    Token,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    VaultItemCreate,
+    VaultItemDetail,
+    VaultItemResponse,
+    VaultItemUpdate,
+)
 
 from app.security import ALGORITHM,SECRET_KEY,create_access_token,hash_password,verify_password
+
+from app.password_generator import generate_password
 
 Base.metadata.create_all(bind=engine)
 
@@ -169,6 +182,32 @@ def read_current_user(
 
 
 @app.post(
+    "/generate-password",
+    response_model=PasswordGeneratorResponse,
+)
+def create_generated_password(
+    options: PasswordGeneratorRequest,
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        password = generate_password(
+            length=options.length,
+            include_uppercase=options.include_uppercase,
+            include_lowercase=options.include_lowercase,
+            include_numbers=options.include_numbers,
+            include_symbols=options.include_symbols,
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    return {"password": password}
+
+
+@app.post(
     "/vault",
     response_model=VaultItemResponse,
     status_code=status.HTTP_201_CREATED,
@@ -207,12 +246,28 @@ def create_vault_item(
     response_model=list[VaultItemDetail],
 )
 def list_vault_items(
+    search: str | None = Query(
+        default=None,
+        min_length=1,
+        max_length=255,
+    ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    query = db.query(VaultItem).filter(
+        VaultItem.user_id == current_user.id
+    )
+
+    if search is not None:
+        search_pattern = f"%{search}%"
+
+        query = query.filter(
+            (VaultItem.website.ilike(search_pattern))
+            | (VaultItem.username.ilike(search_pattern))
+        )
+
     items = (
-        db.query(VaultItem)
-        .filter(VaultItem.user_id == current_user.id)
+        query
         .order_by(VaultItem.created_at.desc())
         .all()
     )
@@ -231,6 +286,7 @@ def list_vault_items(
         )
         for item in items
     ]
+
 
 @app.get(
     "/vault/{item_id}",
