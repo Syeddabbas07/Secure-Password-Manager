@@ -1,58 +1,59 @@
 import base64
 import os
-import secrets
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from dotenv import load_dotenv
+from cryptography.hazmat.primitives.ciphers.aead import (
+    AESGCM,
+)
 
-load_dotenv()
+from app.config import ENCRYPTION_KEY
 
-encoded_encryption_key = os.getenv("ENCRYPTION_KEY")
 
-if not encoded_encryption_key:
-    raise RuntimeError(
-        "ENCRYPTION_KEY is missing. Add it to the .env file."
-    )
+def get_encryption_key() -> bytes:
+    try:
+        key = base64.urlsafe_b64decode(
+            ENCRYPTION_KEY
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "ENCRYPTION_KEY is not valid Base64."
+        ) from exc
 
-try:
-    encryption_key = base64.urlsafe_b64decode(
-        encoded_encryption_key
-    )
-except Exception as exc:
-    raise RuntimeError(
-        "ENCRYPTION_KEY must be valid URL-safe Base64."
-    ) from exc
+    if len(key) not in {16, 24, 32}:
+        raise RuntimeError(
+            "ENCRYPTION_KEY must decode to "
+            "16, 24, or 32 bytes."
+        )
 
-if len(encryption_key) != 32:
-    raise RuntimeError(
-        "ENCRYPTION_KEY must decode to exactly 32 bytes."
-    )
-
-aesgcm = AESGCM(encryption_key)
+    return key
 
 
 def encrypt_password(
     password: str,
     user_id: int,
 ) -> tuple[str, str]:
-    nonce = secrets.token_bytes(12)
-    associated_data = str(user_id).encode("utf-8")
+    key = get_encryption_key()
+    aesgcm = AESGCM(key)
 
-    ciphertext = aesgcm.encrypt(
+    nonce = os.urandom(12)
+
+    associated_data = str(user_id).encode(
+        "utf-8"
+    )
+
+    encrypted_password = aesgcm.encrypt(
         nonce,
         password.encode("utf-8"),
         associated_data,
     )
 
-    encoded_ciphertext = base64.urlsafe_b64encode(
-        ciphertext
-    ).decode("utf-8")
-
-    encoded_nonce = base64.urlsafe_b64encode(
-        nonce
-    ).decode("utf-8")
-
-    return encoded_ciphertext, encoded_nonce
+    return (
+        base64.urlsafe_b64encode(
+            encrypted_password
+        ).decode("utf-8"),
+        base64.urlsafe_b64encode(
+            nonce
+        ).decode("utf-8"),
+    )
 
 
 def decrypt_password(
@@ -60,17 +61,27 @@ def decrypt_password(
     nonce: str,
     user_id: int,
 ) -> str:
-    ciphertext_bytes = base64.urlsafe_b64decode(
-        encrypted_password
+    key = get_encryption_key()
+    aesgcm = AESGCM(key)
+
+    encrypted_password_bytes = (
+        base64.urlsafe_b64decode(
+            encrypted_password
+        )
     )
 
-    nonce_bytes = base64.urlsafe_b64decode(nonce)
-    associated_data = str(user_id).encode("utf-8")
+    nonce_bytes = base64.urlsafe_b64decode(
+        nonce
+    )
 
-    plaintext = aesgcm.decrypt(
+    associated_data = str(user_id).encode(
+        "utf-8"
+    )
+
+    decrypted_password = aesgcm.decrypt(
         nonce_bytes,
-        ciphertext_bytes,
+        encrypted_password_bytes,
         associated_data,
     )
 
-    return plaintext.decode("utf-8")
+    return decrypted_password.decode("utf-8")

@@ -1,6 +1,12 @@
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import (
+    BaseModel,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 
 class UserCreate(BaseModel):
@@ -27,6 +33,27 @@ class UserResponse(BaseModel):
         "from_attributes": True,
     }
 
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(
+        min_length=1,
+        max_length=72,
+    )
+    new_password: str = Field(
+        min_length=8,
+        max_length=72,
+    )
+
+
+class DeleteAccountRequest(BaseModel):
+    current_password: str = Field(
+        min_length=1,
+        max_length=72,
+    )
+
+
+class MessageResponse(BaseModel):
+    message: str
+
 
 class Token(BaseModel):
     access_token: str
@@ -47,16 +74,24 @@ class VaultItemCreate(BaseModel):
         max_length=1000,
     )
 
+    @field_validator(
+        "website",
+        "username",
+        "password",
+    )
+    @classmethod
+    def remove_surrounding_whitespace(
+        cls,
+        value: str,
+    ) -> str:
+        cleaned_value = value.strip()
 
-class VaultItemResponse(BaseModel):
-    id: int
-    website: str
-    username: str
-    created_at: datetime
+        if not cleaned_value:
+            raise ValueError(
+                "Value must not be empty"
+            )
 
-    model_config = {
-        "from_attributes": True,
-    }
+        return cleaned_value
 
 
 class VaultItemUpdate(BaseModel):
@@ -75,6 +110,54 @@ class VaultItemUpdate(BaseModel):
         min_length=1,
         max_length=1000,
     )
+
+    @field_validator(
+        "website",
+        "username",
+        "password",
+    )
+    @classmethod
+    def remove_surrounding_whitespace(
+        cls,
+        value: str | None,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        cleaned_value = value.strip()
+
+        if not cleaned_value:
+            raise ValueError(
+                "Value must not be empty"
+            )
+
+        return cleaned_value
+
+    @model_validator(mode="after")
+    def require_at_least_one_field(
+        self,
+    ):
+        if (
+            self.website is None
+            and self.username is None
+            and self.password is None
+        ):
+            raise ValueError(
+                "At least one update field is required"
+            )
+
+        return self
+
+
+class VaultItemResponse(BaseModel):
+    id: int
+    website: str
+    username: str
+    created_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+    }
 
 
 class VaultItemDetail(BaseModel):

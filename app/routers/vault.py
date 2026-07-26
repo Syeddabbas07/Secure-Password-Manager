@@ -3,6 +3,7 @@ from fastapi import (
     Depends,
     HTTPException,
     Query,
+    Response,
     status,
 )
 from sqlalchemy.orm import Session
@@ -20,6 +21,8 @@ from app.schemas import (
     VaultItemResponse,
     VaultItemUpdate,
 )
+
+from typing import Literal
 
 router = APIRouter(
     prefix="/vault",
@@ -114,7 +117,31 @@ def list_vault_items(
         min_length=1,
         max_length=255,
     ),
-    current_user: User = Depends(get_current_user),
+    offset: int = Query(
+        default=0,
+        ge=0,
+    ),
+    limit: int = Query(
+        default=20,
+        ge=1,
+        le=100,
+    ),
+    sort_by: Literal[
+        "created_at",
+        "website",
+        "username",
+    ] = Query(
+        default="created_at",
+    ),
+    sort_order: Literal[
+        "asc",
+        "desc",
+    ] = Query(
+        default="desc",
+    ),
+    current_user: User = Depends(
+        get_current_user
+    ),
     db: Session = Depends(get_db),
 ):
     query = db.query(VaultItem).filter(
@@ -122,21 +149,52 @@ def list_vault_items(
     )
 
     if search is not None:
-        search_pattern = f"%{search}%"
+        cleaned_search = search.strip()
+
+        search_pattern = (
+            f"%{cleaned_search}%"
+        )
 
         query = query.filter(
-            VaultItem.website.ilike(search_pattern)
-            | VaultItem.username.ilike(search_pattern)
+            VaultItem.website.ilike(
+                search_pattern
+            )
+            | VaultItem.username.ilike(
+                search_pattern
+            )
+        )
+
+    sort_columns = {
+        "created_at": VaultItem.created_at,
+        "website": VaultItem.website,
+        "username": VaultItem.username,
+    }
+
+    selected_sort_column = sort_columns[
+        sort_by
+    ]
+
+    if sort_order == "asc":
+        query = query.order_by(
+            selected_sort_column.asc()
+        )
+    else:
+        query = query.order_by(
+            selected_sort_column.desc()
         )
 
     items = (
         query
-        .order_by(VaultItem.created_at.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
 
     return [
-        build_vault_detail(item, current_user.id)
+        build_vault_detail(
+            item=item,
+            user_id=current_user.id,
+        )
         for item in items
     ]
 
@@ -181,12 +239,6 @@ def update_vault_item(
     update_data = item_data.model_dump(
         exclude_unset=True
     )
-
-    if not update_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No update fields provided",
-        )
 
     if "website" in update_data:
         item.website = update_data["website"]

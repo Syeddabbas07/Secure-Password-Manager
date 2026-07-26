@@ -6,3 +6,4 @@ __pycache__/
 .DS_Store
 .vscode/
 password_manager.db
+test_password_manager.db

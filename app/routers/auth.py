@@ -9,8 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import User
+from app.models import User, VaultItem
 from app.schemas import (
+    DeleteAccountRequest,
+    MessageResponse,
+    PasswordChangeRequest,
     Token,
     UserCreate,
     UserLogin,
@@ -116,3 +119,93 @@ def read_current_user(
     current_user: User = Depends(get_current_user),
 ):
     return current_user
+
+
+@router.patch(
+    "/account/password",
+    response_model=MessageResponse,
+)
+def change_account_password(
+    password_data: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_password_is_valid = verify_password(
+        password_data.current_password,
+        current_user.password_hash,
+    )
+
+    if not current_password_is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect",
+        )
+
+    new_password_matches_current = verify_password(
+        password_data.new_password,
+        current_user.password_hash,
+    )
+
+    if new_password_matches_current:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "New password must be different "
+                "from the current password"
+            ),
+        )
+
+    current_user.password_hash = hash_password(
+        password_data.new_password
+    )
+
+    try:
+        db.commit()
+        db.refresh(current_user)
+
+    except Exception:
+        db.rollback()
+        raise
+
+    return {
+        "message": "Password changed successfully"
+    }
+
+
+@router.delete(
+    "/account",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_account(
+    account_data: DeleteAccountRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_password_is_valid = verify_password(
+        account_data.current_password,
+        current_user.password_hash,
+    )
+
+    if not current_password_is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect",
+        )
+
+    try:
+        (
+            db.query(VaultItem)
+            .filter(
+                VaultItem.user_id == current_user.id
+            )
+            .delete(
+                synchronize_session=False
+            )
+        )
+
+        db.delete(current_user)
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        raise
