@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — Secure Password Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+<div class="auth-shell">
+
+  <div class="auth-brand-panel">
+    <svg class="dial" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <circle cx="110" cy="110" r="96" stroke="var(--steel-700)" stroke-width="1.5"/>
+      <circle cx="110" cy="110" r="72" stroke="var(--steel-700)" stroke-width="1"/>
+      <g stroke="var(--steel-600)" stroke-width="1.5">
+        <line x1="110" y1="14" x2="110" y2="26"/>
+        <line x1="110" y1="194" x2="110" y2="206"/>
+        <line x1="14" y1="110" x2="26" y2="110"/>
+        <line x1="194" y1="110" x2="206" y2="110"/>
+        <line x1="47.7" y1="47.7" x2="56" y2="56"/>
+        <line x1="164" y1="164" x2="172.3" y2="172.3"/>
+        <line x1="47.7" y1="172.3" x2="56" y2="164"/>
+        <line x1="164" y1="56" x2="172.3" y2="47.7"/>
+      </g>
+      <circle cx="110" cy="110" r="46" fill="var(--charcoal-800)" stroke="var(--steel-600)" stroke-width="1.5"/>
+      <g class="dial-needle">
+        <line x1="110" y1="110" x2="110" y2="72" stroke="var(--brass-500)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="110" cy="110" r="5" fill="var(--brass-500)"/>
+      </g>
+    </svg>
+
+    <div class="eyebrow" style="justify-content:center;">Encrypted vault</div>
+    <h1 style="margin-top:14px;">Every secret, <span class="brand-word">locked down.</span></h1>
+    <p class="auth-brand-tagline">
+      AES-GCM encryption at rest, BCrypt-hashed accounts, and a vault only
+      you can open.
+    </p>
+
+    <div class="brand-stats">
+      <div class="brand-stat">
+        <div class="brand-stat-value">AES-256-GCM</div>
+        <div class="brand-stat-label">Encryption</div>
+      </div>
+      <div class="brand-stat">
+        <div class="brand-stat-value">BCrypt</div>
+        <div class="brand-stat-label">Account hashing</div>
+      </div>
+      <div class="brand-stat">
+        <div class="brand-stat-value">JWT</div>
+        <div class="brand-stat-label">Session auth</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="auth-form-panel">
+    <div class="auth-form-inner">
+
+      <div class="auth-tabs">
+        <button type="button" id="login-tab" class="auth-tab active">Sign in</button>
+        <button type="button" id="register-tab" class="auth-tab">Create account</button>
+      </div>
+
+      <form id="login-form">
+        <div class="eyebrow">Access</div>
+        <h2 style="margin-top:10px;">Unlock your vault</h2>
+        <p style="margin-bottom:26px;">Enter your credentials to continue.</p>
+
+        <div class="field-group">
+          <label for="login-email">Email</label>
+          <input id="login-email" type="email" placeholder="name@example.com" required autocomplete="email">
+        </div>
+
+        <div class="field-group">
+          <label for="login-password">Password</label>
+          <input id="login-password" type="password" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+
+        <button type="submit" id="login-button" class="auth-submit">Unlock vault</button>
+      </form>
+
+      <form id="register-form" class="hidden">
+        <div class="eyebrow">New account</div>
+        <h2 style="margin-top:10px;">Open a vault</h2>
+        <p style="margin-bottom:26px;">Takes under a minute. No card required.</p>
+
+        <div class="field-group">
+          <label for="register-email">Email</label>
+          <input id="register-email" type="email" placeholder="name@example.com" required autocomplete="email">
+        </div>
+
+        <div class="field-group">
+          <label for="register-password">Password</label>
+          <input id="register-password" type="password" placeholder="At least 8 characters" required minlength="8" autocomplete="new-password">
+        </div>
+
+        <div class="field-group">
+          <label for="confirm-password">Confirm password</label>
+          <input id="confirm-password" type="password" placeholder="Repeat password" required minlength="8" autocomplete="new-password">
+        </div>
+
+        <button type="submit" id="register-button" class="auth-submit">Create account</button>
+      </form>
+
+      <div id="message" class="message hidden"></div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/auth.js"></script>
+</body>
+</html>

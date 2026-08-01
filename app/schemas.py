@@ -168,6 +168,13 @@ class VaultItemDetail(BaseModel):
     created_at: datetime
 
 
+class VaultStats(BaseModel):
+    total: int
+    weak_count: int
+    reused_count: int
+    added_this_week: int
+
+
 class PasswordGeneratorRequest(BaseModel):
     length: int = Field(
         default=16,

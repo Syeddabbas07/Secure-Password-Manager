@@ -1,3 +1,7 @@
+import re
+from collections import Counter
+from datetime import datetime, timedelta, timezone
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -20,6 +24,7 @@ from app.schemas import (
     VaultItemDetail,
     VaultItemResponse,
     VaultItemUpdate,
+    VaultStats,
 )
 
 from typing import Literal
@@ -197,6 +202,68 @@ def list_vault_items(
         )
         for item in items
     ]
+
+
+def is_weak_password(password: str) -> bool:
+    if len(password) < 10:
+        return True
+
+    category_count = sum(
+        bool(re.search(pattern, password))
+        for pattern in (r"[a-z]", r"[A-Z]", r"[0-9]", r"[^a-zA-Z0-9]")
+    )
+
+    return category_count < 3
+
+
+@router.get(
+    "/stats/summary",
+    response_model=VaultStats,
+)
+def get_vault_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    items = (
+        db.query(VaultItem)
+        .filter(VaultItem.user_id == current_user.id)
+        .all()
+    )
+
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    password_counts: Counter[str] = Counter()
+    weak_count = 0
+    added_this_week = 0
+
+    for item in items:
+        password = decrypt_password(
+            encrypted_password=item.encrypted_password,
+            nonce=item.nonce,
+            user_id=current_user.id,
+        )
+
+        password_counts[password] += 1
+
+        if is_weak_password(password):
+            weak_count += 1
+
+        created_at = item.created_at
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=timezone.utc)
+
+        if created_at >= week_ago:
+            added_this_week += 1
+
+    reused_count = sum(
+        count for count in password_counts.values() if count > 1
+    )
+
+    return VaultStats(
+        total=len(items),
+        weak_count=weak_count,
+        reused_count=reused_count,
+        added_this_week=added_this_week,
+    )
 
 
 @router.get(

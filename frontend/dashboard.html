@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vault — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+
+<div class="container">
+
+  <header class="dashboard-header">
+    <div>
+      <div class="eyebrow">Vault</div>
+      <h1>Your encrypted entries</h1>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" id="generator-nav-button" class="secondary-button">Generate password</button>
+
+      <div class="user-chip">
+        <div class="avatar"><span id="avatar-letter">?</span></div>
+        <span id="user-email">Loading...</span>
+      </div>
+
+      <button type="button" id="settings-button" class="secondary-button">Settings</button>
+      <button type="button" id="logout-button" class="secondary-button">Log out</button>
+    </div>
+  </header>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-card-top">
+        <span class="stat-label">Total entries</span>
+        <span class="stat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </span>
+      </div>
+      <div class="stat-value" id="stat-total">—</div>
+      <p class="stat-caption">Passwords in your vault</p>
+    </div>
+
+    <div class="stat-card stat-card-danger">
+      <div class="stat-card-top">
+        <span class="stat-label">Weak passwords</span>
+        <span class="stat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+        </span>
+      </div>
+      <div class="stat-value" id="stat-weak">—</div>
+      <p class="stat-caption">Short or low-variety secrets</p>
+    </div>
+
+    <div class="stat-card stat-card-warning">
+      <div class="stat-card-top">
+        <span class="stat-label">Reused passwords</span>
+        <span class="stat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </span>
+      </div>
+      <div class="stat-value" id="stat-reused">—</div>
+      <p class="stat-caption">Same secret used more than once</p>
+    </div>
+
+    <div class="stat-card stat-card-success">
+      <div class="stat-card-top">
+        <span class="stat-label">Added this week</span>
+        <span class="stat-icon">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+        </span>
+      </div>
+      <div class="stat-value" id="stat-recent">—</div>
+      <p class="stat-caption">New entries in the last 7 days</p>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <div class="toolbar-controls">
+      <input id="search-input" placeholder="Search by site or username...">
+
+      <select id="sort-by">
+        <option value="created_at">Sort: Date added</option>
+        <option value="website">Sort: Site</option>
+        <option value="username">Sort: Username</option>
+      </select>
+
+      <button type="button" id="sort-order-button" class="secondary-button sort-order-toggle">↓ Descending</button>
+      <button type="button" id="refresh-button" class="secondary-button">Refresh</button>
+    </div>
+
+    <button type="button" id="add-item-button">+ New entry</button>
+  </div>
+
+  <div class="vault-panel">
+
+    <div id="loading-spinner" class="spinner-wrapper hidden">
+      <div class="spinner"></div>
+      <span>Reading the vault...</span>
+    </div>
+
+    <div id="vault-table-wrapper">
+
+      <div id="empty-state" class="empty-state hidden">
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin:0 auto;display:block;">
+          <rect x="10" y="18" width="44" height="32" rx="2" stroke="var(--steel-500)" stroke-width="2"/>
+          <path d="M18 18V14C18 10.686 20.686 8 24 8H40C43.314 8 46 10.686 46 14V18" stroke="var(--steel-500)" stroke-width="2"/>
+          <circle cx="32" cy="34" r="3.5" stroke="var(--brass-500)" stroke-width="2"/>
+          <line x1="32" y1="37.5" x2="32" y2="42" stroke="var(--brass-500)" stroke-width="2"/>
+        </svg>
+        <h2>This box is empty</h2>
+        <p>Add your first entry to start filling your vault.</p>
+        <button type="button" id="empty-state-add-button" style="margin-top:16px;">+ New entry</button>
+      </div>
+
+      <table class="table" id="vault-table">
+        <thead>
+          <tr>
+            <th>Box</th>
+            <th>Site</th>
+            <th>Username</th>
+            <th>Secret</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="vault-body"></tbody>
+      </table>
+
+      <div class="pagination-bar">
+        <span class="page-indicator" id="page-indicator">Page 1</span>
+        <div style="display:flex;gap:8px;">
+          <button type="button" id="prev-page" class="secondary-button">Previous</button>
+          <button type="button" id="next-page" class="secondary-button">Next</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Add / Edit Item Modal -->
+<div class="modal-overlay hidden" id="item-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="item-modal-title">New entry</h2>
+      <button type="button" class="modal-close" id="item-modal-close">✕</button>
+    </div>
+
+    <form id="item-form">
+      <div class="field-group">
+        <label for="item-website">Site</label>
+        <input id="item-website" placeholder="e.g. github.com" required maxlength="255">
+      </div>
+
+      <div class="field-group">
+        <label for="item-username">Username / email</label>
+        <input id="item-username" placeholder="e.g. jane@example.com" required maxlength="255">
+      </div>
+
+      <div class="field-group">
+        <label for="item-password">Secret</label>
+        <div class="input-with-action">
+          <input id="item-password" type="password" placeholder="Password" required maxlength="1000">
+          <button type="button" id="item-password-toggle" class="secondary-button">Show</button>
+        </div>
+        <button type="button" id="item-generate-button" class="link-button" style="margin-top:10px;">
+          Generate a strong password →
+        </button>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="item-modal-cancel" class="secondary-button">Cancel</button>
+        <button type="submit" id="item-save-button">Save entry</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay hidden" id="delete-modal">
+  <div class="modal" style="width:400px;">
+    <div class="modal-header">
+      <h2>Delete entry</h2>
+      <button type="button" class="modal-close" id="delete-modal-close">✕</button>
+    </div>
+
+    <p>
+      Delete the saved entry for <strong id="delete-modal-item-name" style="color:var(--paper-100);"></strong>?
+      This can't be undone.
+    </p>
+
+    <div class="modal-footer">
+      <button type="button" id="delete-modal-cancel" class="secondary-button">Cancel</button>
+      <button type="button" id="delete-modal-confirm" class="danger-button">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Password Generator Modal -->
+<div class="modal-overlay hidden" id="generator-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Password generator</h2>
+      <button type="button" class="modal-close" id="generator-modal-close">✕</button>
+    </div>
+
+    <div class="generator-readout">
+      <input id="generator-output" class="generator-output" readonly>
+    </div>
+
+    <div class="generator-options">
+      <div>
+        <label>Length: <span id="generator-length-value">16</span></label>
+        <div class="range-row">
+          <input type="range" id="generator-length" min="8" max="64" value="16">
+        </div>
+      </div>
+
+      <div class="generator-checkboxes">
+        <label class="checkbox-row"><input type="checkbox" id="generator-uppercase" checked> Uppercase (A-Z)</label>
+        <label class="checkbox-row"><input type="checkbox" id="generator-lowercase" checked> Lowercase (a-z)</label>
+        <label class="checkbox-row"><input type="checkbox" id="generator-numbers" checked> Numbers (0-9)</label>
+        <label class="checkbox-row"><input type="checkbox" id="generator-symbols" checked> Symbols (!@#$)</label>
+      </div>
+    </div>
+
+    <div class="modal-footer" style="justify-content:space-between;">
+      <button type="button" id="generator-regenerate" class="secondary-button">Regenerate</button>
+      <div style="display:flex;gap:10px;">
+        <button type="button" id="generator-copy" class="secondary-button">Copy</button>
+        <button type="button" id="generator-use">Use this password</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay hidden" id="settings-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Account settings</h2>
+      <button type="button" class="modal-close" id="settings-modal-close">✕</button>
+    </div>
+
+    <div class="settings-section">
+      <h3>Change password</h3>
+      <form id="change-password-form">
+        <div class="field-group">
+          <label for="current-password">Current password</label>
+          <input id="current-password" type="password" required>
+        </div>
+
+        <div class="field-group">
+          <label for="new-password">New password</label>
+          <input id="new-password" type="password" required minlength="8">
+        </div>
+
+        <button type="submit" id="change-password-button" style="width:100%;">Change password</button>
+      </form>
+    </div>
+
+    <div class="settings-section settings-section-danger">
+      <h3>Delete account</h3>
+      <p class="warning-text">
+        This permanently deletes your account and every stored entry. This can't be undone.
+      </p>
+
+      <div class="field-group">
+        <label for="delete-account-password">Confirm your password</label>
+        <input id="delete-account-password" type="password">
+      </div>
+
+      <button type="button" id="delete-account-button" class="danger-button" style="width:100%;">
+        Delete my account
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/dashboard.js"></script>
+</body>
+</html>
